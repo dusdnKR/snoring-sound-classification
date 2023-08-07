@@ -1,0 +1,2 @@
+model_checkpoint_path: "C:\\Users\\owner\\Documents\\GitHub\\Sound-classification-on-Raspberry-Pi-with-Tensorflow-master\\model\\model"
+all_model_checkpoint_paths: "C:\\Users\\owner\\Documents\\GitHub\\Sound-classification-on-Raspberry-Pi-with-Tensorflow-master\\model\\model"

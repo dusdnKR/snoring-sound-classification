@@ -1,19 +1,20 @@
 import librosa
 import numpy as np
 import tensorflow as tf
-import sounddevice
 from sklearn.preprocessing import StandardScaler
+import matplotlib.pyplot as plt
 import time
 
 tf.compat.v1.disable_eager_execution()
 
+audio_file_path = "juntae_sleep1.wav"
+sleeping_score = 100
+
 duration = 0.1  # seconds
 sample_rate = 44100
 
-def extract_features():
-    X = sounddevice.rec(int(duration * sample_rate), samplerate=sample_rate, channels=1)
-    sounddevice.wait()
-    X = np.squeeze(X)
+def extract_features(audio_file_path):
+    X, _ = librosa.load(audio_file_path, sr=sample_rate)
     stft = np.abs(librosa.stft(X))
     mfccs = np.array(librosa.feature.mfcc(y=X, sr=sample_rate, n_mfcc=8).T)
     chroma = np.array(librosa.feature.chroma_stft(S=stft, sr=sample_rate).T)
@@ -64,16 +65,20 @@ with tf.compat.v1.Session() as sess:
     start_time = time.time()
     snoring_detected = False
     snore_start_time = None
+    snore_record = []
+    time_points = []
+    sleeping_scores = []
 
-    while True:
+    X, _ = librosa.load(audio_file_path, sr=sample_rate)
+    total_duration = len(X) / sample_rate
+
+    while total_duration >= 0:
         current_time = time.time()
         elapsed_time = current_time - start_time
+        print(elapsed_time, total_duration)
+        print()
 
-        if elapsed_time >= 8 * 60 * 60:  # 측정 시간
-            print("Total snoring time (seconds):", snoring_time)
-            break
-
-        feat = extract_features()
+        feat = extract_features(audio_file_path)
         feat = sc.transform(feat)
         y_pred = sess.run(tf.argmax(y_, 1), feed_dict={X: feat})
 
@@ -81,9 +86,33 @@ with tf.compat.v1.Session() as sess:
             if not snoring_detected:
                 snoring_detected = True
                 snore_start_time = current_time
+                snore_record.append(time.strftime('%H:%M:%S'))
+                print(time.strftime('%H:%M:%S'))
         else:
             if snoring_detected and (current_time - snore_start_time >= 5.0):
-                snoring_time += current_time - snore_start_time
-                snoring_detected = False
+                snoring_duration = current_time - snore_start_time
+                snoring_time += snoring_duration
 
+                # Sleeping Score 감점
+                sleeping_score = sleeping_score - snoring_duration * 0.05
+
+                time_points.append(elapsed_time)
+                sleeping_scores.append(sleeping_score)
+
+            if elapsed_time >= total_duration:
+                break
+
+    # 그래프 그리기
+    plt.figure(figsize=(10, 6))
+    plt.plot(time_points, sleeping_scores, marker='o', linestyle='-', color='b')
+    plt.title('Sleeping Score')
+    plt.xlabel('Time (s)')
+    plt.ylabel('Sleeping Score')
+    plt.set_ylim(60, 100)
+    plt.grid(True)
+    plt.savefig('score_graph.png')
+    plt.show()
+
+    print("Final Sleeping Score:", sleeping_score)
+    print("Total Snoring Time (s):", snoring_time)
     print("Done")
